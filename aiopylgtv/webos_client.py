@@ -33,14 +33,7 @@ class PyLGTVCmdException(Exception):
 
 
 class WebOsClient:
-    def __init__(
-        self,
-        ip,
-        key_file_path=None,
-        timeout_connect=2,
-        ping_interval=20,
-        standby_connection=False,
-    ):
+    def __init__(self, ip, key_file_path=None, timeout_connect=2, ping_interval=1):
         """Initialize the client."""
         self.ip = ip
         self.port = 3000
@@ -50,14 +43,13 @@ class WebOsClient:
         self.command_count = 0
         self.timeout_connect = timeout_connect
         self.ping_interval = ping_interval
-        self.standby_connection = standby_connection
         self.connect_task = None
         self.connect_result = None
         self.connection = None
         self.input_connection = None
         self.callbacks = {}
         self.futures = {}
-        self._power_state = None
+        self._power_state = {}
         self._current_appId = None
         self._muted = None
         self._volume = None
@@ -278,7 +270,7 @@ class WebOsClient:
 
             self.doStateUpdate = False
 
-            self._power_state = None
+            self._power_state = {}
             self._current_appId = None
             self._muted = None
             self._volume = None
@@ -303,11 +295,12 @@ class WebOsClient:
                     except asyncio.CancelledError:
                         pass
 
-    async def ping_handler(self, ws, interval=20):
+    async def ping_handler(self, ws, interval):
         try:
             while True:
                 await asyncio.sleep(interval)
-                if self.current_appId != "" or not self.standby_connection:
+                # In the "Suspend" state the tv can keep a connection alive, but will not respond to pings
+                if self._power_state.get("state") != "Suspend":
                     ping_waiter = await ws.ping()
                     await asyncio.wait_for(ping_waiter, timeout=self.timeout_connect)
         except (
@@ -488,14 +481,7 @@ class WebOsClient:
             await asyncio.gather(*callbacks)
 
     async def set_power_state(self, payload):
-        self._power_state = payload.get("state")
-
-        # if standby+ is off, the actual state update will never come, so disconnect on the initial notification
-        if (
-            not self.standby_connection
-            and payload.get("processing") == "Request Power Off"
-        ):
-            await self.disconnect()
+        self._power_state = payload
 
         if self.state_update_callbacks and self.doStateUpdate:
             await self.do_state_update_callbacks()
@@ -768,17 +754,17 @@ class WebOsClient:
         """Power off TV."""
 
         # protect against turning tv back on if it is off
-        if self._power_state in [None, "Power Off", "Suspend", "Active Standby"]:
+        if self._power_state.get("state") in [
+            None,
+            "Power Off",
+            "Suspend",
+            "Active Standby",
+        ]:
             return
 
-        if self.standby_connection:
-            # if standby+ option is enabled, connection stays open
-            # and TV responds gracefully to power off request
-            return await self.request(ep.POWER_OFF)
-        else:
-            # if tv is shutting down and standby++ option is not enabled,
-            # response is unreliable, so don't wait for one,
-            await self.command("request", ep.POWER_OFF)
+        # if tv is shutting down and standby+ option is not enabled,
+        # response is unreliable, so don't wait for one,
+        await self.command("request", ep.POWER_OFF)
 
     async def power_on(self):
         """Play media."""
