@@ -229,7 +229,7 @@ class WebOsClient:
             self._system_info, self._software_info = await asyncio.gather(
                 self.get_system_info(), self.get_software_info()
             )
-            await asyncio.gather(
+            subscribe_coros = {
                 self.subscribe_power_state(self.set_power_state),
                 self.subscribe_current_app(self.set_current_app_state),
                 self.subscribe_muted(self.set_muted_state),
@@ -237,7 +237,16 @@ class WebOsClient:
                 self.subscribe_apps(self.set_apps_state),
                 self.subscribe_inputs(self.set_inputs_state),
                 self.subscribe_sound_output(self.set_sound_output_state),
-            )
+            }
+            subscribe_tasks = set()
+            for coro in subscribe_coros:
+                subscribe_tasks.add(asyncio.create_task(coro))
+            subscribe_done, _ = await asyncio.wait(subscribe_tasks)
+            for task in subscribe_done:
+                try:
+                    task.result()
+                except PyLGTVCmdException:
+                    pass
             self.doStateUpdate = True
             if self.state_update_callbacks:
                 await self.do_state_update_callbacks()
