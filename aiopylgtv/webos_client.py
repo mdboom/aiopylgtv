@@ -1092,7 +1092,7 @@ class WebOsClient:
         return await self.calibration_request(cal.UPLOAD_1D_LUT, picMode, data)
 
     async def upload_3d_lut(self, command, picMode, data):
-        if command not in [cal.UPLOAD_3D_LUT_BT709, cal.UPLOAD_3D_LUT_BT202]:
+        if command not in [cal.UPLOAD_3D_LUT_BT709, cal.UPLOAD_3D_LUT_BT2020]:
             raise PyLGTVCmdException(f"Invalid 3D LUT Upload command {command}.")
         info = self.calibration_support_info()
         lut3d_size = info["lut3d_size"]
