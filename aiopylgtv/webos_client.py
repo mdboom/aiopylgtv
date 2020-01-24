@@ -247,6 +247,9 @@ class WebOsClient:
                     task.result()
                 except PyLGTVCmdException:
                     pass
+            # set placeholder power state if not available
+            if not self._power_state:
+                self._power_state = {"state": "Unknown"}
             self.doStateUpdate = True
             if self.state_update_callbacks:
                 await self.do_state_update_callbacks()
@@ -420,6 +423,20 @@ class WebOsClient:
     @property
     def sound_output(self):
         return self._sound_output
+
+    @property
+    def is_on(self):
+        state = self._power_state.get("state")
+        if state == "Unknown":
+            # fallback to current app id for some older webos versions which don't support explicit power state
+            if self._current_appId in [None, ""]:
+                return False
+            else:
+                return True
+        elif state in [None, "Power Off", "Suspend", "Active Standby"]:
+            return False
+        else:
+            return True
 
     def calibration_support_info(self):
         info = {
@@ -763,12 +780,7 @@ class WebOsClient:
         """Power off TV."""
 
         # protect against turning tv back on if it is off
-        if self._power_state.get("state") in [
-            None,
-            "Power Off",
-            "Suspend",
-            "Active Standby",
-        ]:
+        if not self.is_on:
             return
 
         # if tv is shutting down and standby+ option is not enabled,
