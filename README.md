@@ -120,23 +120,23 @@ There may be other not fully known/understood changes in the image processing pi
 import asyncio
 from aiopylgtv import WebOsClient
 
-async def runloop():
+async def runloop(client):
     await client.connect()
 
     await client.set_input("HDMI_2")
-    await client.start_calibration(picMode = "expert1")
-    await client.ddc_reset(picMode = "expert1")
-    await client.set_oled_light(picMode = "expert1", value = 26)
-    await client.set_contrast(picMode = "expert1", value = 100)
-    await client.upload_1d_lut_from_file(picMode = "expert1", filename = "test.cal")
-    await client.upload_3d_lut_bt709_from_file(picMode = "expert1", filename = "test3d.cube")
-    await client.upload_3d_lut_bt2020_from_file(picMode = "expert1", filename = "test3d.cube")
-    await client.end_calibration(picMode = "expert1")
+    await client.start_calibration(picMode="expert1")
+    await client.ddc_reset(picMode="expert1")
+    await client.set_oled_light(picMode="expert1", value=26)
+    await client.set_contrast(picMode="expert1", value=100)
+    await client.upload_1d_lut_from_file(picMode="expert1", filename="test.cal")
+    await client.upload_3d_lut_bt709_from_file(picMode="expert1", filename="test3d.cube")
+    await client.upload_3d_lut_bt2020_from_file(picMode="expert1", filename="test3d.cube")
+    await client.end_calibration(picMode="expert1")
 
     await client.disconnect()
 
 client = WebOsClient('192.168.1.53')
-asyncio.get_event_loop().run_until_complete(runloop())
+asyncio.run(runloop(client))
 ```
 
 ## Development of `aiopylgtv`
