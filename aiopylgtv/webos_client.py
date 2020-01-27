@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import copy
+import functools
 import json
 import logging
 import os
@@ -12,9 +13,15 @@ from sqlitedict import SqliteDict
 from . import buttons as btn
 from . import cal_commands as cal
 from . import endpoints as ep
-from .constants import CALIBRATION_TYPE_MAP, DEFAULT_CAL_DATA
+from .constants import BT2020_PRIMARIES, CALIBRATION_TYPE_MAP, DEFAULT_CAL_DATA
 from .handshake import REGISTRATION_MESSAGE
-from .lut_tools import read_cal_file, read_cube_file, unity_lut_1d, unity_lut_3d
+from .lut_tools import (
+    create_dolby_vision_config,
+    read_cal_file,
+    read_cube_file,
+    unity_lut_1d,
+    unity_lut_3d,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1075,8 +1082,9 @@ class WebOsClient:
             "dataType": CALIBRATION_TYPE_MAP[data.dtype.name],
             "profileNo": 0,
             "programID": 1,
-            "picMode": picMode,
         }
+        if picMode is not None:
+            payload["picMode"] = picMode
 
         return await self.request(ep.CALIBRATION, payload)
 
@@ -1169,6 +1177,37 @@ class WebOsClient:
     ):
         self.validateCalibrationData(data, (3, 3), np.float32)
         return await self.calibration_request(cal.BT2020_3BY3_GAMUT_DATA, picMode, data)
+
+    async def set_dolby_vision_config_data(
+        self, white_level=700.0, black_level=0.0, gamma=2.2, primaries=BT2020_PRIMARIES
+    ):
+        if isinstance(white_level, str):
+            white_level = float(white_level)
+
+        info = self.calibration_support_info()
+        dv_config_type = info["dv_config_type"]
+        if dv_config_type is None:
+            model = self._system_info["modelName"]
+            raise PyLGTVCmdException(
+                f"Dolby Vision Configuration Upload not supported by tv model {model}."
+            )
+
+        config = await asyncio.get_running_loop().run_in_executor(
+            None,
+            functools.partial(
+                create_dolby_vision_config,
+                version=dv_config_type,
+                white_level=white_level,
+                black_level=black_level,
+                gamma=gamma,
+                primaries=primaries,
+            ),
+        )
+
+        data = np.frombuffer(config.encode(), dtype=np.uint8)
+        return await self.calibration_request(
+            command=cal.DOLBY_CFG_DATA, picMode=None, data=data
+        )
 
     async def set_tonemap_params(
         self,
