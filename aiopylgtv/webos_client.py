@@ -1133,9 +1133,6 @@ class WebOsClient:
         return await self.upload_3d_lut(cal.UPLOAD_3D_LUT_BT2020, picMode, data)
 
     async def set_ui_data(self, command, picMode, value):
-        if isinstance(value, str):
-            value = int(value)
-
         if not (value >= 0 and value <= 100):
             raise ValueError
 
@@ -1181,8 +1178,6 @@ class WebOsClient:
     async def set_dolby_vision_config_data(
         self, white_level=700.0, black_level=0.0, gamma=2.2, primaries=BT2020_PRIMARIES
     ):
-        if isinstance(white_level, str):
-            white_level = float(white_level)
 
         info = self.calibration_support_info()
         dv_config_type = info["dv_config_type"]
@@ -1237,18 +1232,10 @@ class WebOsClient:
         return await self.calibration_request(cal.SET_TONEMAP_PARAM, picMode, data)
 
     async def ddc_reset(self, picMode, reset_1d_lut=True):
-        if isinstance(reset_1d_lut, str):
-            if reset_1d_lut.lower() == "true":
-                reset_1d_lut = True
-            elif reset_1d_lut.lower() == "false":
-                reset_1d_lut = False
-            else:
-                try:
-                    reset_1d_lut = bool(int(reset_1d_lut))
-                except ValueError:
-                    raise ValueError(
-                        f"Invalid parameter {reset_1d_lut} for ddc_reset, should be a boolean."
-                    )
+        if not isinstance(reset_1d_lut, bool):
+            raise TypeError(
+                f"reset_1d_lut should be a bool, instead got {reset_1d_lut} of type {type(reset_1d_lut)}."
+            )
 
         await self.set_1d_2_2_en(picMode)
         await self.set_1d_0_45_en(picMode)

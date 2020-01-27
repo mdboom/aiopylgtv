@@ -10,6 +10,22 @@ async def runloop(client, command, parameters):
     await client.disconnect()
 
 
+def convert_arg(arg):
+    try:
+        return int(arg)
+    except ValueError:
+        pass
+    try:
+        return float(arg)
+    except ValueError:
+        pass
+    if arg.lower() == "true":
+        return True
+    elif arg.lower() == "false":
+        return False
+    return arg
+
+
 def aiopylgtvcommand():
     parser = argparse.ArgumentParser(description="Send command to LG WebOs TV.")
     parser.add_argument(
@@ -22,7 +38,7 @@ def aiopylgtvcommand():
     )
     parser.add_argument(
         "parameters",
-        type=str,
+        type=convert_arg,
         nargs="*",
         help="additional parameters to be passed to WebOsClient function call",
     )
@@ -31,6 +47,4 @@ def aiopylgtvcommand():
 
     client = WebOsClient(args.host, timeout_connect=2)
 
-    asyncio.get_event_loop().run_until_complete(
-        runloop(client, args.command, args.parameters)
-    )
+    asyncio.run(runloop(client, args.command, args.parameters))
