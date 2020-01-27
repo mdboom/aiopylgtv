@@ -1065,11 +1065,15 @@ class WebOsClient:
 
     def validateCalibrationData(self, data, shape, dtype):
         if not isinstance(data, np.ndarray):
-            raise TypeError
+            raise TypeError(f"data must be of type ndarray but is instead {type(data)}")
         if data.shape != shape:
-            raise ValueError
+            raise ValueError(
+                f"data should have shape {shape} but instead has {data.shape}"
+            )
         if data.dtype != dtype:
-            raise TypeError
+            raise TypeError(
+                f"numpy dtype should be {dtype} but is instead {data.dtype}"
+            )
 
     async def calibration_request(self, command, picMode, data):
         dataenc = base64.b64encode(data.tobytes()).decode()
@@ -1104,7 +1108,7 @@ class WebOsClient:
                 f"1D LUT Upload not supported by tv model {model}."
             )
         if data is None:
-            data = asyncio.get_running_loop().run_in_executor(None, unity_lut_1d)
+            data = await asyncio.get_running_loop().run_in_executor(None, unity_lut_1d)
         self.validateCalibrationData(data, (3, 1024), np.uint16)
         return await self.calibration_request(cal.UPLOAD_1D_LUT, picMode, data)
 
@@ -1119,7 +1123,7 @@ class WebOsClient:
                 f"3D LUT Upload not supported by tv model {model}."
             )
         if data is None:
-            data = asyncio.get_running_loop().run_in_executor(
+            data = await asyncio.get_running_loop().run_in_executor(
                 None, unity_lut_3d, lut3d_size
             )
         lut3d_shape = (lut3d_size, lut3d_size, lut3d_size, 3)
@@ -1258,11 +1262,11 @@ class WebOsClient:
     async def upload_1d_lut_from_file(self, picMode, filename):
         ext = filename.split(".")[-1].lower()
         if ext == "cal":
-            lut = asyncio.get_running_loop().run_in_executor(
+            lut = await asyncio.get_running_loop().run_in_executor(
                 None, read_cal_file, filename
             )
         elif ext == "cube":
-            lut = asyncio.get_running_loop().run_in_executor(
+            lut = await asyncio.get_running_loop().run_in_executor(
                 None, read_cube_file, filename
             )
         else:
@@ -1275,7 +1279,7 @@ class WebOsClient:
     async def upload_3d_lut_from_file(self, command, picMode, filename):
         ext = filename.split(".")[-1].lower()
         if ext == "cube":
-            lut = asyncio.get_running_loop().run_in_executor(
+            lut = await asyncio.get_running_loop().run_in_executor(
                 None, read_cube_file, filename
             )
         else:
