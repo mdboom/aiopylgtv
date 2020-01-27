@@ -7,6 +7,7 @@ import os
 
 import numpy as np
 import websockets
+from sqlitedict import SqliteDict
 
 from . import buttons as btn
 from . import cal_commands as cal
@@ -18,7 +19,7 @@ from .lut_tools import read_cal_file, read_cube_file, unity_lut_1d, unity_lut_3d
 logger = logging.getLogger(__name__)
 
 
-KEY_FILE_NAME = ".aiopylgtv"
+KEY_FILE_NAME = ".aiopylgtv.sqlite"
 USER_HOME = "HOME"
 
 
@@ -64,8 +65,6 @@ class WebOsClient:
         self.state_update_callbacks = []
         self.doStateUpdate = False
 
-        self.load_key_file()
-
     @staticmethod
     def _get_key_file_path():
         """Return the key file path."""
@@ -76,28 +75,20 @@ class WebOsClient:
 
         return os.path.join(os.getcwd(), KEY_FILE_NAME)
 
-    def load_key_file(self):
+    def read_client_key(self):
         """Try to load the client key for the current ip."""
-        self.client_key = None
+
         if self.key_file_path:
             key_file_path = self.key_file_path
         else:
             key_file_path = self._get_key_file_path()
-        key_dict = {}
 
         logger.debug("load keyfile from %s", key_file_path)
 
-        if os.path.isfile(key_file_path):
-            with open(key_file_path, "r") as f:
-                raw_data = f.read()
-                if raw_data:
-                    key_dict = json.loads(raw_data)
+        with SqliteDict(key_file_path) as conf:
+            return conf.get(self.ip)
 
-        logger.debug("getting client_key for %s from %s", self.ip, key_file_path)
-        if self.ip in key_dict:
-            self.client_key = key_dict[self.ip]
-
-    def save_key_file(self):
+    def write_client_key(self):
         """Save the current client key."""
         if self.client_key is None:
             return
@@ -109,26 +100,16 @@ class WebOsClient:
 
         logger.debug("save keyfile to %s", key_file_path)
 
-        if os.path.isfile(key_file_path):
-            with open(key_file_path, "r+") as f:
-                raw_data = f.read()
-                f.seek(0)
-                f.truncate()
-                key_dict = {}
-
-                if raw_data:
-                    key_dict = json.loads(raw_data)
-
-                key_dict[self.ip] = self.client_key
-
-                f.write(json.dumps(key_dict))
-        else:
-            with open(key_file_path, "w") as f:
-                key_dict = {}
-                key_dict[self.ip] = self.client_key
-                f.write(json.dumps(key_dict))
+        with SqliteDict(key_file_path) as conf:
+            conf[self.ip] = self.client_key
+            conf.commit()
 
     async def connect(self):
+        if self.client_key is None:
+            self.client_key = await asyncio.get_running_loop().run_in_executor(
+                None, self.read_client_key
+            )
+
         if not self.is_connected():
             self.connect_result = asyncio.Future()
             self.connect_task = asyncio.create_task(
@@ -144,8 +125,13 @@ class WebOsClient:
             except asyncio.CancelledError:
                 pass
 
-    def is_registered(self):
+    async def is_registered(self):
         """Paired with the tv."""
+        if self.client_key is None:
+            self.client_key = await asyncio.get_running_loop().run_in_executor(
+                None, self.read_client_key
+            )
+
         return self.client_key is not None
 
     def is_connected(self):
@@ -182,7 +168,9 @@ class WebOsClient:
                 response = json.loads(raw_response)
                 if response["type"] == "registered":
                     self.client_key = response["payload"]["client-key"]
-                    self.save_key_file()
+                    await asyncio.get_running_loop().run_in_executor(
+                        None, self.write_client_key
+                    )
 
             if not self.client_key:
                 raise PyLGTVPairException("Unable to pair")
@@ -1108,7 +1096,7 @@ class WebOsClient:
                 f"1D LUT Upload not supported by tv model {model}."
             )
         if data is None:
-            data = unity_lut_1d()
+            data = asyncio.get_running_loop().run_in_executor(None, unity_lut_1d)
         self.validateCalibrationData(data, (3, 1024), np.uint16)
         return await self.calibration_request(cal.UPLOAD_1D_LUT, picMode, data)
 
@@ -1123,7 +1111,9 @@ class WebOsClient:
                 f"3D LUT Upload not supported by tv model {model}."
             )
         if data is None:
-            data = unity_lut_3d(lut3d_size)
+            data = asyncio.get_running_loop().run_in_executor(
+                None, unity_lut_3d, lut3d_size
+            )
         lut3d_shape = (lut3d_size, lut3d_size, lut3d_size, 3)
         self.validateCalibrationData(data, lut3d_shape, np.uint16)
         return await self.calibration_request(command, picMode, data)
@@ -1242,9 +1232,13 @@ class WebOsClient:
     async def upload_1d_lut_from_file(self, picMode, filename):
         ext = filename.split(".")[-1].lower()
         if ext == "cal":
-            lut = read_cal_file(filename)
+            lut = asyncio.get_running_loop().run_in_executor(
+                None, read_cal_file, filename
+            )
         elif ext == "cube":
-            lut = read_cube_file(filename)
+            lut = asyncio.get_running_loop().run_in_executor(
+                None, read_cube_file, filename
+            )
         else:
             raise ValueError(
                 f"Unsupported file format {ext} for 1D LUT.  Supported file formats are cal and cube."
@@ -1255,7 +1249,9 @@ class WebOsClient:
     async def upload_3d_lut_from_file(self, command, picMode, filename):
         ext = filename.split(".")[-1].lower()
         if ext == "cube":
-            lut = read_cube_file(filename)
+            lut = asyncio.get_running_loop().run_in_executor(
+                None, read_cube_file, filename
+            )
         else:
             raise ValueError(
                 f"Unsupported file format {ext} for 3D LUT.  Supported file formats are cube."
