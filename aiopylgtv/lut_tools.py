@@ -1,4 +1,7 @@
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from .constants import BT2020_PRIMARIES, DV_CONFIG_FILENAMES
 

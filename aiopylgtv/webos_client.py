@@ -6,7 +6,10 @@ import json
 import logging
 import os
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    np = None
 import websockets
 from sqlitedict import SqliteDict
 
@@ -1167,15 +1170,17 @@ class WebOsClient:
             cal.ENABLE_GAMMA_0_45_TRANSFORM, picMode, data
         )
 
-    async def set_bt709_3by3_gamut_data(
-        self, picMode, data=np.identity(3, dtype=np.float32)
-    ):
+    async def set_bt709_3by3_gamut_data(self, picMode, data=None):
+        assert np, 'numpy needs to be installed for this feature'
+        if data is None:
+            data = np.identity(3, dtype=np.float32)
         self.validateCalibrationData(data, (3, 3), np.float32)
         return await self.calibration_request(cal.BT709_3BY3_GAMUT_DATA, picMode, data)
 
-    async def set_bt2020_3by3_gamut_data(
-        self, picMode, data=np.identity(3, dtype=np.float32)
-    ):
+    async def set_bt2020_3by3_gamut_data(self, picMode, data=None):
+        assert np, 'numpy needs to be installed for this feature'
+        if data is None:
+            data = np.identity(3, dtype=np.float32)
         self.validateCalibrationData(data, (3, 3), np.float32)
         return await self.calibration_request(cal.BT2020_3BY3_GAMUT_DATA, picMode, data)
 
