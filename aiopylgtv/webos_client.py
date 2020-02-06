@@ -167,6 +167,7 @@ class WebOsClient:
                     f"ws://{self.ip}:{self.port}",
                     ping_interval=None,
                     close_timeout=self.timeout_connect,
+                    max_size=None,
                 ),
                 timeout=self.timeout_connect,
             )
