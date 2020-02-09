@@ -40,6 +40,16 @@ class PyLGTVCmdException(Exception):
         self.message = message
 
 
+class PyLGTVCmdError(PyLGTVCmdException):
+    def __init__(self, message):
+        self.message = message
+
+
+class PyLGTVServiceNotFoundError(PyLGTVCmdError):
+    def __init__(self, message):
+        self.message = message
+
+
 class WebOsClient:
     def __init__(self, ip, key_file_path=None, timeout_connect=2, ping_interval=1):
         """Initialize the client."""
@@ -237,11 +247,11 @@ class WebOsClient:
             subscribe_tasks = set()
             for coro in subscribe_coros:
                 subscribe_tasks.add(asyncio.create_task(coro))
-            subscribe_done, _ = await asyncio.wait(subscribe_tasks)
-            for task in subscribe_done:
+            await asyncio.wait(subscribe_tasks)
+            for task in subscribe_tasks:
                 try:
                     task.result()
-                except PyLGTVCmdException:
+                except PyLGTVServiceNotFoundError:
                     pass
             # set placeholder power state if not available
             if not self._power_state:
@@ -636,7 +646,13 @@ class WebOsClient:
 
         returnValue = payload.get("returnValue") or payload.get("subscribed")
 
-        if returnValue is None:
+        if response.get("type") == "error":
+            error = response.get("error")
+            if error == "404 no such service or method":
+                raise PyLGTVServiceNotFoundError(error)
+            else:
+                raise PyLGTVCmdError(error)
+        elif returnValue is None:
             raise PyLGTVCmdException(f"Invalid request response {response}")
         elif not returnValue:
             raise PyLGTVCmdException(f"Request failed with response {response}")
