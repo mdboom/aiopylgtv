@@ -584,12 +584,10 @@ class WebOsClient:
         else:
             change = payload["change"]
             app_id = payload["id"]
-            if change == "added":
-                self._apps[app_id] = payload
-            elif change == "removed":
+            if change == "removed":
                 del self._apps[app_id]
             else:
-                raise PyLGTVCmdError(f"Unexpected apps update: {payload}")
+                self._apps[app_id] = payload
 
         if self.state_update_callbacks and self.doStateUpdate:
             await self.do_state_update_callbacks()
