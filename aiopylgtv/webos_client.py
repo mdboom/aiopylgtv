@@ -575,10 +575,21 @@ class WebOsClient:
         if self.state_update_callbacks and self.doStateUpdate:
             await self.do_state_update_callbacks()
 
-    async def set_apps_state(self, apps):
-        self._apps = {}
-        for app in apps:
-            self._apps[app["id"]] = app
+    async def set_apps_state(self, payload):
+        apps = payload.get("launchPoints")
+        if apps is not None:
+            self._apps = {}
+            for app in apps:
+                self._apps[app["id"]] = app
+        else:
+            change = payload["change"]
+            app_id = payload["id"]
+            if change == "added":
+                self._apps[app_id] = payload
+            elif change == "removed":
+                del self._apps[app_id]
+            else:
+                raise PyLGTVCmdError(f"Unexpected apps update: {payload}")
 
         if self.state_update_callbacks and self.doStateUpdate:
             await self.do_state_update_callbacks()
@@ -739,11 +750,7 @@ class WebOsClient:
 
     async def subscribe_apps(self, callback):
         """Subscribe to changes in available apps."""
-
-        async def apps(payload):
-            await callback(payload.get("launchPoints"))
-
-        return await self.subscribe(apps, ep.GET_APPS)
+        return await self.subscribe(callback, ep.GET_APPS)
 
     async def get_current_app(self):
         """Get the current app id."""
