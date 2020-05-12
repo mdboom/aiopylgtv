@@ -375,11 +375,11 @@ class WebOsClient:
             if tasks:
                 closeout_task = asyncio.create_task(asyncio.wait(tasks))
 
-            while not closeout_task.done():
-                try:
-                    await asyncio.shield(closeout_task)
-                except asyncio.CancelledError:
-                    pass
+                while not closeout_task.done():
+                    try:
+                        await asyncio.shield(closeout_task)
+                    except asyncio.CancelledError:
+                        pass
 
     # manage state
     @property
