@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 KEY_FILE_NAME = ".aiopylgtv.sqlite"
 USER_HOME = "HOME"
 
-CONSECUTIVE_VOLUME_STEPS_DELAY = timedelta(milliseconds=300)
 SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS = {"external_arc"}
 
 
@@ -55,7 +54,14 @@ class PyLGTVServiceNotFoundError(PyLGTVCmdError):
 
 
 class WebOsClient:
-    def __init__(self, ip, key_file_path=None, timeout_connect=2, ping_interval=1):
+    def __init__(
+        self,
+        ip,
+        key_file_path=None,
+        timeout_connect=2,
+        ping_interval=1,
+        volume_step_delay_ms=300,
+    ):
         """Initialize the client."""
         self.ip = ip
         self.port = 3000
@@ -86,6 +92,7 @@ class WebOsClient:
         self.state_update_callbacks = []
         self.doStateUpdate = False
         self._volume_step_lock = asyncio.Lock()
+        self._volume_step_delay = timedelta(milliseconds=volume_step_delay_ms)
 
     @staticmethod
     def _get_key_file_path():
@@ -897,7 +904,7 @@ class WebOsClient:
         async with self._volume_step_lock:
             response = await self.request(endpoint)
             if self.sound_output in SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS:
-                await asyncio.sleep(CONSECUTIVE_VOLUME_STEPS_DELAY.total_seconds())
+                await asyncio.sleep(self._volume_step_delay.total_seconds())
             return response
 
     # TV Channel
