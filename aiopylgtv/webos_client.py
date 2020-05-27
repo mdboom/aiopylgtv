@@ -85,7 +85,7 @@ class WebOsClient:
         self._sound_output = None
         self.state_update_callbacks = []
         self.doStateUpdate = False
-        self._last_volume_step_lock = asyncio.Lock()
+        self._volume_step_lock = asyncio.Lock()
 
     @staticmethod
     def _get_key_file_path():
@@ -886,22 +886,19 @@ class WebOsClient:
 
     async def volume_up(self):
         """Volume up."""
-        response = await self.request(ep.VOLUME_UP)
-        await self._sleep_between_consecutive_volume_steps()
-        return response
+        return await self._volume_step(ep.VOLUME_UP)
 
     async def volume_down(self):
         """Volume down."""
-        response = await self.request(ep.VOLUME_DOWN)
-        await self._sleep_between_consecutive_volume_steps()
-        return response
+        return await self._volume_step(ep.VOLUME_DOWN)
 
-    async def _sleep_between_consecutive_volume_steps(self):
-        """Sleep until the configured delay duration has elapsed since the last volume step."""
-        if self.sound_output not in SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS:
-            return
-        async with self._last_volume_step_lock:
-            await asyncio.sleep(CONSECUTIVE_VOLUME_STEPS_DELAY.total_seconds())
+    async def _volume_step(self, endpoint):
+        """Volume step and conditionally sleep afterwards if a consecutive volume step shouldn't be possible to perform immediately after."""
+        async with self._volume_step_lock:
+            response = await self.request(endpoint)
+            if self.sound_output in SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS:
+                await asyncio.sleep(CONSECUTIVE_VOLUME_STEPS_DELAY.total_seconds())
+            return response
 
     # TV Channel
     async def channel_up(self):
