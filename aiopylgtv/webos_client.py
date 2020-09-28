@@ -980,6 +980,11 @@ class WebOsClient:
         """Send delete key."""
         return await self.request(ep.SEND_DELETE)
 
+    # Text entry
+    async def insert_text(self, text, replace=False):
+        """Insert text into field, optionally replace existing text."""
+        return await self.request(ep.INSERT_TEXT, {"text": text, "replace": replace})
+
     # Web
     async def open_url(self, url):
         """Open URL."""
