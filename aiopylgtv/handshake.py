@@ -28,6 +28,7 @@ REGISTRATION_PAYLOAD = {
             "CONTROL_INPUT_MEDIA_PLAYBACK",
             "CONTROL_INPUT_TV",
             "CONTROL_POWER",
+            "CONTROL_TV_SCREEN",
             "READ_APP_STATUS",
             "READ_CURRENT_CHANNEL",
             "READ_INPUT_DEVICE_LIST",
