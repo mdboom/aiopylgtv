@@ -444,6 +444,12 @@ class WebOsClient:
         else:
             return True
 
+    @property
+    def is_screen_on(self):
+        if self.is_on:
+            return self._power_state.get("state") != "Screen Off"
+        return False
+
     def calibration_support_info(self):
         info = {
             "lut1d": False,
@@ -807,6 +813,14 @@ class WebOsClient:
     async def power_on(self):
         """Play media."""
         return await self.request(ep.POWER_ON)
+
+    async def turn_screen_off(self):
+        """Turn TV Screen off."""
+        await self.command("request", ep.TURN_OFF_SCREEN)
+
+    async def turn_screen_on(self):
+        """Turn TV Screen on."""
+        await self.command("request", ep.TURN_ON_SCREEN)
 
     # 3D Mode
     async def turn_3d_on(self):
