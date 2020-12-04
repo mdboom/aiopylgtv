@@ -33,12 +33,19 @@ class PyLGTVCmdException(Exception):
 
 
 class WebOsClient:
-    def __init__(self, ip, key_file_path=None, timeout_connect=2, ping_interval=1):
+    def __init__(
+        self,
+        ip,
+        key_file_path=None,
+        timeout_connect=2,
+        ping_interval=1,
+        client_key=None,
+    ):
         """Initialize the client."""
         self.ip = ip
         self.port = 3000
         self.key_file_path = key_file_path
-        self.client_key = None
+        self.client_key = client_key
         self.web_socket = None
         self.command_count = 0
         self.timeout_connect = timeout_connect
@@ -63,8 +70,8 @@ class WebOsClient:
         self._sound_output = None
         self.state_update_callbacks = []
         self.doStateUpdate = False
-
-        self.load_key_file()
+        if self.client_key is None:
+            self.load_key_file()
 
     @staticmethod
     def _get_key_file_path():
