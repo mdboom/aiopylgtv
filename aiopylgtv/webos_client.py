@@ -90,7 +90,7 @@ class WebOsClient:
         self.doStateUpdate = False
         if self.client_key is None:
             self.load_key_file()
-        
+
     @staticmethod
     def _get_key_file_path():
         """Return the key file path."""
