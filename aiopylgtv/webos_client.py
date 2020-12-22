@@ -51,7 +51,14 @@ class PyLGTVServiceNotFoundError(PyLGTVCmdError):
 
 
 class WebOsClient:
-    def __init__(self, ip, key_file_path=None, timeout_connect=2, ping_interval=1, client_key=None):
+    def __init__(
+        self,
+        ip,
+        key_file_path=None,
+        timeout_connect=2,
+        ping_interval=1,
+        client_key=None,
+    ):
         """Initialize the client."""
         self.ip = ip
         self.port = 3000
