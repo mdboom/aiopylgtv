@@ -89,6 +89,19 @@ class WebOsClient:
         self.state_update_callbacks = []
         self.doStateUpdate = False
 
+    @classmethod
+    async def create(cls, *args, **kwargs):
+        client = cls(*args, **kwargs)
+        await client.async_init()
+        return client
+
+    async def async_init(self):
+        """Load client key from config file if in use."""
+        if self.client_key is None:
+            self.client_key = await asyncio.get_running_loop().run_in_executor(
+                None, self.read_client_key
+            )
+
     @staticmethod
     def _get_key_file_path():
         """Return the key file path."""
@@ -129,11 +142,6 @@ class WebOsClient:
             conf.commit()
 
     async def connect(self):
-        if self.client_key is None:
-            self.client_key = await asyncio.get_running_loop().run_in_executor(
-                None, self.read_client_key
-            )
-
         if not self.is_connected():
             self.connect_result = asyncio.Future()
             self.connect_task = asyncio.create_task(
@@ -149,13 +157,8 @@ class WebOsClient:
             except asyncio.CancelledError:
                 pass
 
-    async def is_registered(self):
+    def is_registered(self):
         """Paired with the tv."""
-        if self.client_key is None:
-            self.client_key = await asyncio.get_running_loop().run_in_executor(
-                None, self.read_client_key
-            )
-
         return self.client_key is not None
 
     def is_connected(self):
