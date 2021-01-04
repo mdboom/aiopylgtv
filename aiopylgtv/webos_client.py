@@ -88,8 +88,6 @@ class WebOsClient:
         self._sound_output = None
         self.state_update_callbacks = []
         self.doStateUpdate = False
-        if self.client_key is None:
-            self.load_key_file()
 
     @staticmethod
     def _get_key_file_path():
