@@ -57,7 +57,7 @@ class WebOsClient:
         key_file_path=None,
         timeout_connect=2,
         ping_interval=1,
-        ping_timeout=2,
+        ping_timeout=20,
         client_key=None,
     ):
         """Initialize the client."""
