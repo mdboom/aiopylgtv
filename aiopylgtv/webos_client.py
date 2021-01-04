@@ -57,6 +57,7 @@ class WebOsClient:
         key_file_path=None,
         timeout_connect=2,
         ping_interval=1,
+        ping_timeout=2,
         client_key=None,
     ):
         """Initialize the client."""
@@ -68,6 +69,7 @@ class WebOsClient:
         self.command_count = 0
         self.timeout_connect = timeout_connect
         self.ping_interval = ping_interval
+        self.ping_timeout = ping_timeout
         self.connect_task = None
         self.connect_result = None
         self.connection = None
@@ -213,7 +215,9 @@ class WebOsClient:
             )
             if self.ping_interval is not None:
                 handler_tasks.add(
-                    asyncio.create_task(self.ping_handler(ws, self.ping_interval))
+                    asyncio.create_task(
+                        self.ping_handler(ws, self.ping_interval, self.ping_timeout)
+                    )
                 )
             self.connection = ws
 
@@ -234,7 +238,11 @@ class WebOsClient:
             handler_tasks.add(asyncio.create_task(inputws.wait_closed()))
             if self.ping_interval is not None:
                 handler_tasks.add(
-                    asyncio.create_task(self.ping_handler(inputws, self.ping_interval))
+                    asyncio.create_task(
+                        self.ping_handler(
+                            inputws, self.ping_interval, self.ping_timeout
+                        )
+                    )
                 )
             self.input_connection = inputws
 
@@ -323,14 +331,15 @@ class WebOsClient:
                     except asyncio.CancelledError:
                         pass
 
-    async def ping_handler(self, ws, interval):
+    async def ping_handler(self, ws, interval, timeout):
         try:
             while True:
                 await asyncio.sleep(interval)
                 # In the "Suspend" state the tv can keep a connection alive, but will not respond to pings
                 if self._power_state.get("state") != "Suspend":
                     ping_waiter = await ws.ping()
-                    await asyncio.wait_for(ping_waiter, timeout=self.timeout_connect)
+                    if timeout is not None:
+                        await asyncio.wait_for(ping_waiter, timeout=timeout)
         except (
             asyncio.TimeoutError,
             asyncio.CancelledError,
