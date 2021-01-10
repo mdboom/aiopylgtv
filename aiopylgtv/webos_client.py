@@ -60,7 +60,7 @@ class WebOsClient:
         key_file_path=None,
         timeout_connect=2,
         ping_interval=1,
-        volume_step_delay_ms=300,
+        volume_step_delay_ms=None,
     ):
         """Initialize the client."""
         self.ip = ip
@@ -92,7 +92,11 @@ class WebOsClient:
         self.state_update_callbacks = []
         self.doStateUpdate = False
         self._volume_step_lock = asyncio.Lock()
-        self._volume_step_delay = timedelta(milliseconds=volume_step_delay_ms)
+        self._volume_step_delay = (
+            timedelta(milliseconds=volume_step_delay_ms)
+            if volume_step_delay_ms is not None
+            else None
+        )
 
     @staticmethod
     def _get_key_file_path():
@@ -901,11 +905,16 @@ class WebOsClient:
 
     async def _volume_step(self, endpoint):
         """Volume step and conditionally sleep afterwards if a consecutive volume step shouldn't be possible to perform immediately after."""
-        async with self._volume_step_lock:
-            response = await self.request(endpoint)
-            if self.sound_output in SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS:
+        if (
+            self.sound_output in SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS
+            and self._volume_step_delay is not None
+        ):
+            async with self._volume_step_lock:
+                response = await self.request(endpoint)
                 await asyncio.sleep(self._volume_step_delay.total_seconds())
-            return response
+                return response
+        else:
+            return await self.request(endpoint)
 
     # TV Channel
     async def channel_up(self):
