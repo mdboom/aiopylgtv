@@ -60,17 +60,20 @@ class WebOsClient:
         key_file_path=None,
         timeout_connect=2,
         ping_interval=1,
+        ping_timeout=20,
+        client_key=None,
         volume_step_delay_ms=None,
     ):
         """Initialize the client."""
         self.ip = ip
         self.port = 3000
         self.key_file_path = key_file_path
-        self.client_key = None
+        self.client_key = client_key
         self.web_socket = None
         self.command_count = 0
         self.timeout_connect = timeout_connect
         self.ping_interval = ping_interval
+        self.ping_timeout = ping_timeout
         self.connect_task = None
         self.connect_result = None
         self.connection = None
@@ -97,6 +100,19 @@ class WebOsClient:
             if volume_step_delay_ms is not None
             else None
         )
+
+    @classmethod
+    async def create(cls, *args, **kwargs):
+        client = cls(*args, **kwargs)
+        await client.async_init()
+        return client
+
+    async def async_init(self):
+        """Load client key from config file if in use."""
+        if self.client_key is None:
+            self.client_key = await asyncio.get_running_loop().run_in_executor(
+                None, self.read_client_key
+            )
 
     @staticmethod
     def _get_key_file_path():
@@ -138,11 +154,6 @@ class WebOsClient:
             conf.commit()
 
     async def connect(self):
-        if self.client_key is None:
-            self.client_key = await asyncio.get_running_loop().run_in_executor(
-                None, self.read_client_key
-            )
-
         if not self.is_connected():
             self.connect_result = asyncio.Future()
             self.connect_task = asyncio.create_task(
@@ -158,13 +169,8 @@ class WebOsClient:
             except asyncio.CancelledError:
                 pass
 
-    async def is_registered(self):
+    def is_registered(self):
         """Paired with the tv."""
-        if self.client_key is None:
-            self.client_key = await asyncio.get_running_loop().run_in_executor(
-                None, self.read_client_key
-            )
-
         return self.client_key is not None
 
     def is_connected(self):
@@ -219,7 +225,9 @@ class WebOsClient:
             )
             if self.ping_interval is not None:
                 handler_tasks.add(
-                    asyncio.create_task(self.ping_handler(ws, self.ping_interval))
+                    asyncio.create_task(
+                        self.ping_handler(ws, self.ping_interval, self.ping_timeout)
+                    )
                 )
             self.connection = ws
 
@@ -240,7 +248,11 @@ class WebOsClient:
             handler_tasks.add(asyncio.create_task(inputws.wait_closed()))
             if self.ping_interval is not None:
                 handler_tasks.add(
-                    asyncio.create_task(self.ping_handler(inputws, self.ping_interval))
+                    asyncio.create_task(
+                        self.ping_handler(
+                            inputws, self.ping_interval, self.ping_timeout
+                        )
+                    )
                 )
             self.input_connection = inputws
 
@@ -329,14 +341,15 @@ class WebOsClient:
                     except asyncio.CancelledError:
                         pass
 
-    async def ping_handler(self, ws, interval):
+    async def ping_handler(self, ws, interval, timeout):
         try:
             while True:
                 await asyncio.sleep(interval)
                 # In the "Suspend" state the tv can keep a connection alive, but will not respond to pings
                 if self._power_state.get("state") != "Suspend":
                     ping_waiter = await ws.ping()
-                    await asyncio.wait_for(ping_waiter, timeout=self.timeout_connect)
+                    if timeout is not None:
+                        await asyncio.wait_for(ping_waiter, timeout=timeout)
         except (
             asyncio.TimeoutError,
             asyncio.CancelledError,
@@ -459,6 +472,12 @@ class WebOsClient:
             return False
         else:
             return True
+
+    @property
+    def is_screen_on(self):
+        if self.is_on:
+            return self._power_state.get("state") != "Screen Off"
+        return False
 
     def calibration_support_info(self):
         info = {
@@ -824,6 +843,14 @@ class WebOsClient:
         """Play media."""
         return await self.request(ep.POWER_ON)
 
+    async def turn_screen_off(self):
+        """Turn TV Screen off."""
+        await self.command("request", ep.TURN_OFF_SCREEN)
+
+    async def turn_screen_on(self):
+        """Turn TV Screen on."""
+        await self.command("request", ep.TURN_ON_SCREEN)
+
     # 3D Mode
     async def turn_3d_on(self):
         """Turn 3D on."""
@@ -880,13 +907,13 @@ class WebOsClient:
     async def get_volume(self):
         """Get the current volume."""
         res = await self.request(ep.GET_VOLUME)
-        return res.get("volume")
+        return res.get("volumeStatus", res).get("volume")
 
     async def subscribe_volume(self, callback):
         """Subscribe to changes in the current volume."""
 
         async def volume(payload):
-            await callback(payload.get("volume"))
+            await callback(payload.get("volumeStatus", payload).get("volume"))
 
         return await self.subscribe(volume, ep.GET_VOLUME)
 
@@ -1008,6 +1035,11 @@ class WebOsClient:
     async def send_delete_key(self):
         """Send delete key."""
         return await self.request(ep.SEND_DELETE)
+
+    # Text entry
+    async def insert_text(self, text, replace=False):
+        """Insert text into field, optionally replace existing text."""
+        return await self.request(ep.INSERT_TEXT, {"text": text, "replace": replace})
 
     # Web
     async def open_url(self, url):

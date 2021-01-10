@@ -4,9 +4,10 @@ import asyncio
 from aiopylgtv import WebOsClient
 
 
-async def runloop(client, command, parameters):
+async def runloop(args):
+    client = await WebOsClient.create(args.host, timeout_connect=2)
     await client.connect()
-    print(await getattr(client, command)(*parameters))
+    print(await getattr(client, args.command)(*args.parameters))
     await client.disconnect()
 
 
@@ -45,6 +46,4 @@ def aiopylgtvcommand():
 
     args = parser.parse_args()
 
-    client = WebOsClient(args.host, timeout_connect=2)
-
-    asyncio.run(runloop(client, args.command, args.parameters))
+    asyncio.run(runloop(args))

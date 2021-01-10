@@ -23,7 +23,8 @@ pip install --upgrade .
 import asyncio
 from aiopylgtv import WebOsClient
 
-async def runloop(client):
+async def runloop():
+    client = await WebOsClient.create('192.168.1.53')
     await client.connect()
     apps = await client.get_apps()
     for app in apps:
@@ -31,8 +32,7 @@ async def runloop(client):
 
     await client.disconnect()
 
-client = WebOsClient('192.168.1.53')
-asyncio.get_event_loop().run_until_complete(runloop(client))
+asyncio.get_event_loop().run_until_complete(runloop())
 ```
 
 ## Subscribed state updates
@@ -54,6 +54,7 @@ async def on_state_change():
 
 
 async def runloop():
+    client = await WebOsClient.create('192.168.1.53')
     await client.register_state_update_callback(on_state_change)
 
     await client.connect()
@@ -64,7 +65,6 @@ async def runloop():
 
     await client.disconnect()
 
-client = WebOsClient('192.168.1.53')
 asyncio.get_event_loop().run_until_complete(runloop())
 ```
 
@@ -120,7 +120,8 @@ There may be other not fully known/understood changes in the image processing pi
 import asyncio
 from aiopylgtv import WebOsClient
 
-async def runloop(client):
+async def runloop():
+    client = await WebOsClient.create('192.168.1.53')
     await client.connect()
 
     await client.set_input("HDMI_2")
@@ -135,8 +136,7 @@ async def runloop(client):
 
     await client.disconnect()
 
-client = WebOsClient('192.168.1.53')
-asyncio.run(runloop(client))
+asyncio.run(runloop())
 ```
 
 ## Development of `aiopylgtv`
