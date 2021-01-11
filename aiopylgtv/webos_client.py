@@ -5,6 +5,7 @@ import functools
 import json
 import logging
 import os
+from datetime import timedelta
 
 import numpy as np
 import websockets
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 KEY_FILE_NAME = ".aiopylgtv.sqlite"
 USER_HOME = "HOME"
+
+SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS = {"external_arc"}
 
 
 class PyLGTVPairException(Exception):
@@ -59,6 +62,7 @@ class WebOsClient:
         ping_interval=1,
         ping_timeout=20,
         client_key=None,
+        volume_step_delay_ms=None,
     ):
         """Initialize the client."""
         self.ip = ip
@@ -90,6 +94,12 @@ class WebOsClient:
         self._sound_output = None
         self.state_update_callbacks = []
         self.doStateUpdate = False
+        self._volume_step_lock = asyncio.Lock()
+        self._volume_step_delay = (
+            timedelta(milliseconds=volume_step_delay_ms)
+            if volume_step_delay_ms is not None
+            else None
+        )
 
     @classmethod
     async def create(cls, *args, **kwargs):
@@ -914,11 +924,24 @@ class WebOsClient:
 
     async def volume_up(self):
         """Volume up."""
-        return await self.request(ep.VOLUME_UP)
+        return await self._volume_step(ep.VOLUME_UP)
 
     async def volume_down(self):
         """Volume down."""
-        return await self.request(ep.VOLUME_DOWN)
+        return await self._volume_step(ep.VOLUME_DOWN)
+
+    async def _volume_step(self, endpoint):
+        """Volume step and conditionally sleep afterwards if a consecutive volume step shouldn't be possible to perform immediately after."""
+        if (
+            self.sound_output in SOUND_OUTPUTS_TO_DELAY_CONSECUTIVE_VOLUME_STEPS
+            and self._volume_step_delay is not None
+        ):
+            async with self._volume_step_lock:
+                response = await self.request(endpoint)
+                await asyncio.sleep(self._volume_step_delay.total_seconds())
+                return response
+        else:
+            return await self.request(endpoint)
 
     # TV Channel
     async def channel_up(self):
