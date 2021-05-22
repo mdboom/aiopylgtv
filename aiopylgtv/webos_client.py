@@ -708,7 +708,7 @@ class WebOsClient:
             if error == "404 no such service or method":
                 raise PyLGTVServiceNotFoundError(error)
             else:
-                raise PyLGTVCmdError(error)
+                raise PyLGTVCmdError(response)
         elif returnValue is None:
             raise PyLGTVCmdException(f"Invalid request response {response}")
         elif not returnValue:
