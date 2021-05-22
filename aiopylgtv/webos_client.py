@@ -92,6 +92,7 @@ class WebOsClient:
         self._system_info = None
         self._software_info = None
         self._sound_output = None
+        self._picture_settings = None
         self.state_update_callbacks = []
         self.doStateUpdate = False
         self._volume_step_lock = asyncio.Lock()
@@ -271,6 +272,7 @@ class WebOsClient:
                 self.subscribe_apps(self.set_apps_state),
                 self.subscribe_inputs(self.set_inputs_state),
                 self.subscribe_sound_output(self.set_sound_output_state),
+                self.subscribe_picture_settings(self.set_picture_settings),
             }
             subscribe_tasks = set()
             for coro in subscribe_coros:
@@ -328,6 +330,7 @@ class WebOsClient:
             self._system_info = None
             self._software_info = None
             self._sound_output = None
+            self._picture_settings = None
 
             for callback in self.state_update_callbacks:
                 closeout.add(callback())
@@ -458,6 +461,10 @@ class WebOsClient:
     @property
     def sound_output(self):
         return self._sound_output
+
+    @property
+    def picture_settings(self):
+        return self._picture_settings
 
     @property
     def is_on(self):
@@ -637,6 +644,12 @@ class WebOsClient:
 
     async def set_sound_output_state(self, sound_output):
         self._sound_output = sound_output
+
+        if self.state_update_callbacks and self.doStateUpdate:
+            await self.do_state_update_callbacks()
+
+    async def set_picture_settings(self, picture_settings):
+        self._picture_settings = picture_settings
 
         if self.state_update_callbacks and self.doStateUpdate:
             await self.do_state_update_callbacks()
@@ -1341,6 +1354,15 @@ class WebOsClient:
         payload = {"category": "picture", "keys": keys}
         ret = await self.request(ep.GET_SYSTEM_SETTINGS, payload=payload)
         return ret["settings"]
+
+    async def subscribe_picture_settings(
+        self, callback, keys=["contrast", "backlight", "brightness", "color"]
+    ):
+        async def settings(payload):
+            await callback(payload.get("settings"))
+
+        payload = {"category": "picture", "keys": keys}
+        return await self.subscribe(settings, ep.GET_SYSTEM_SETTINGS, payload=payload)
 
     async def upload_1d_lut_from_file(self, picMode, filename):
         ext = filename.split(".")[-1].lower()
