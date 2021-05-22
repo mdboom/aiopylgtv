@@ -272,7 +272,7 @@ class WebOsClient:
                 self.subscribe_apps(self.set_apps_state),
                 self.subscribe_inputs(self.set_inputs_state),
                 self.subscribe_sound_output(self.set_sound_output_state),
-                self.subscribe_picture_settings(self.set_picture_settings),
+                self.subscribe_picture_settings(self.set_picture_settings_state),
             }
             subscribe_tasks = set()
             for coro in subscribe_coros:
@@ -648,7 +648,7 @@ class WebOsClient:
         if self.state_update_callbacks and self.doStateUpdate:
             await self.do_state_update_callbacks()
 
-    async def set_picture_settings(self, picture_settings):
+    async def set_picture_settings_state(self, picture_settings):
         self._picture_settings = picture_settings
 
         if self.state_update_callbacks and self.doStateUpdate:
@@ -1186,6 +1186,254 @@ class WebOsClient:
             raise PyLGTVCmdException("Invalid alertId")
 
         return await self.request(ep.CLOSE_ALERT, payload={"alertId": alertId})
+
+    async def set_current_picture_mode(self, pic_mode):
+        """Set picture mode for current input, dynamic range and 3d mode.
+
+        Known picture modes are: cinema, eco, expert1, expert2, game,
+        normal, photo, sports, technicolor, vivid, hdrEffect,  hdrCinema,
+        hdrCinemaBright, hdrExternal, hdrGame, hdrStandard, hdrTechnicolor,
+        hdrVivid, dolbyHdrCinema, dolbyHdrCinemaBright, dolbyHdrDarkAmazon,
+        dolbyHdrGame, dolbyHdrStandard, dolbyHdrVivid, dolbyStandard
+
+        Likely not all modes are valid for all tv models.
+        """
+
+        uri = "com.webos.settingsservice/setSystemSettings"
+
+        params = {"category": "picture", "settings": {"pictureMode": pic_mode}}
+
+        return await self.luna_request(uri, params)
+
+    async def set_picture_mode(
+        self, pic_mode, tv_input, dynamic_range="sdr", stereoscopic="2d"
+    ):
+        """Set picture mode for specific input, dynamic range and 3d mode.
+
+        Known picture modes are: cinema, eco, expert1, expert2, game,
+        normal, photo, sports, technicolor, vivid, hdrEffect,  hdrCinema,
+        hdrCinemaBright, hdrExternal, hdrGame, hdrStandard, hdrTechnicolor,
+        hdrVivid, dolbyHdrCinema, dolbyHdrCinemaBright, dolbyHdrDarkAmazon,
+        dolbyHdrGame, dolbyHdrStandard, dolbyHdrVivid, dolbyStandard
+
+        Known inputs are: atv, av1, av2, camera, comp1, comp2, comp3,
+        default, dtv, gallery, hdmi1, hdmi2, hdmi3, hdmi4,
+        hdmi1_pc, hdmi2_pc, hdmi3_pc, hdmi4_pc, ip, movie,
+        photo, pictest, rgb, scart, smhl
+
+        Known dynamic range modes are: sdr, hdr, technicolorHdr, dolbyHdr
+
+        Known stereoscopic modes are: 2d, 3d
+
+        Likely not all inputs and modes are valid for all tv models.
+        """
+
+        uri = "com.webos.settingsservice/setSystemSettings"
+
+        params = {
+            "category": f"picture${tv_input}.x.{stereoscopic}.{dynamic_range}",
+            "settings": {"pictureMode": pic_mode},
+        }
+
+        return await self.luna_request(uri, params)
+
+    async def set_current_picture_settings(self, settings):
+        """Set picture settings for current picture mode, input, dynamic range and 3d mode.
+
+        A possible list of settings and example values are below (not all settings are applicable
+        for all modes and/or tv models):
+
+        "adjustingLuminance": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "backlight": "80",
+        "blackLevel": {
+            "ntsc": "auto",
+            "ntsc443": "auto",
+            "pal": "auto",
+            "pal60": "auto",
+            "palm": "auto",
+            "paln": "auto",
+            "secam": "auto",
+            "unknown": "auto"
+        },
+        "brightness": "50",
+        "color": "50",
+        "colorFilter": "off",
+        "colorGamut": "auto",
+        "colorManagementColorSystem": "red",
+        "colorManagementHueBlue": "0",
+        "colorManagementHueCyan": "0",
+        "colorManagementHueGreen": "0",
+        "colorManagementHueMagenta": "0",
+        "colorManagementHueRed": "0",
+        "colorManagementHueYellow": "0",
+        "colorManagementLuminanceBlue": "0",
+        "colorManagementLuminanceCyan": "0",
+        "colorManagementLuminanceGreen": "0",
+        "colorManagementLuminanceMagenta": "0",
+        "colorManagementLuminanceRed": "0",
+        "colorManagementLuminanceYellow": "0",
+        "colorManagementSaturationBlue": "0",
+        "colorManagementSaturationCyan": "0",
+        "colorManagementSaturationGreen": "0",
+        "colorManagementSaturationMagenta": "0",
+        "colorManagementSaturationRed": "0",
+        "colorManagementSaturationYellow": "0",
+        "colorTemperature": "0",
+        "contrast": "80",
+        "dynamicColor": "off",
+        "dynamicContrast": "off",
+        "edgeEnhancer": "on",
+        "expertPattern": "off",
+        "externalPqlDbType": "none",
+        "gamma": "high2",
+        "grassColor": "0",
+        "hPosition": "0",
+        "hSharpness": "10",
+        "hSize": "0",
+        "hdrDynamicToneMapping": "on",
+        "hdrLevel": "medium",
+        "localDimming": "medium",
+        "motionEyeCare": "off",
+        "motionPro": "off",
+        "mpegNoiseReduction": "off",
+        "noiseReduction": "off",
+        "realCinema": "on",
+        "sharpness": "10",
+        "skinColor": "0",
+        "skyColor": "0",
+        "superResolution": "off",
+        "tint": "0",
+        "truMotionBlur": "10",
+        "truMotionJudder": "0",
+        "truMotionMode": "user",
+        "vPosition": "0",
+        "vSharpness": "10",
+        "vSize": "0",
+        "whiteBalanceApplyAllInputs": "off",
+        "whiteBalanceBlue": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "whiteBalanceBlueGain": "0",
+        "whiteBalanceBlueOffset": "0",
+        "whiteBalanceCodeValue": "19",
+        "whiteBalanceColorTemperature": "warm2",
+        "whiteBalanceGreen": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "whiteBalanceGreenGain": "0",
+        "whiteBalanceGreenOffset": "0",
+        "whiteBalanceIre": "100",
+        "whiteBalanceLuminance": "130",
+        "whiteBalanceMethod": "2",
+        "whiteBalancePattern": "outer",
+        "whiteBalancePoint": "high",
+        "whiteBalanceRed": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "whiteBalanceRedGain": "0",
+        "whiteBalanceRedOffset": "0",
+        "xvycc": "auto"
+
+
+        """
+
+        uri = "com.webos.settingsservice/setSystemSettings"
+
+        params = {"category": "picture", "settings": settings}
+
+        return await self.luna_request(uri, params)
+
+    async def set_picture_settings(
+        self, settings, pic_mode, tv_input, stereoscopic="2d"
+    ):
+        """Set picture settings for specific picture mode, input, and 3d mode."""
+
+        uri = "com.webos.settingsservice/setSystemSettings"
+
+        params = {
+            "category": f"picture${tv_input}.{pic_mode}.{stereoscopic}.x",
+            "settings": settings,
+        }
+
+        return await self.luna_request(uri, params)
 
     def validateCalibrationData(self, data, shape, dtype):
         if not isinstance(data, np.ndarray):
